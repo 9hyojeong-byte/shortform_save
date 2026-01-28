@@ -1,0 +1,8 @@
+{
+  "name": "Short-Form Bookmark Master",
+  "description": "A mobile-optimized web application to save and manage Reels, TikTok, and YouTube Shorts with automatic thumbnail extraction and Google Sheets integration.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
