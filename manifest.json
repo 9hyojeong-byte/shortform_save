@@ -1,0 +1,23 @@
+
+{
+  "name": "숏폼저장소",
+  "short_name": "숏폼저장소",
+  "description": "릴스, 틱톡, 쇼츠 즐겨찾기 관리 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/128/2839/2839021.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2839/2839021.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

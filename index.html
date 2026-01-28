@@ -4,6 +4,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="ShortsFavs">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/128/2839/2839021.png">
+    <link rel="manifest" href="/manifest.json">
     <title>Short-Form Bookmark Master</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,7 +19,6 @@
             background-color: #f8fafc;
             -webkit-tap-highlight-color: transparent;
         }
-        /* Custom scrollbar for horizontal categories */
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -38,7 +43,6 @@
 </head>
 <body class="overflow-x-hidden">
     <div id="root"></div>
-    <!-- Vite entry point -->
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>
