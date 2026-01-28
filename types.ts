@@ -2,7 +2,7 @@
 export type Category = '전체' | '프리다이빙' | '여행' | '우정릴스' | '인증샷' | '귀여움' | '캠핑팁';
 
 export interface Bookmark {
-  id: string;
+  id: string; // 고유 ID (필수)
   date: string;
   url: string;
   thumbnail: string;

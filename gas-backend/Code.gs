@@ -3,78 +3,118 @@
  * Short-Form Bookmark App Backend
  */
 
-const SHEET_ID = ''; // 비워두면 활성 시트 사용
-const DRIVE_FOLDER_ID = ''; 
+const SHEET_ID = '1yfwSgo-VuHVbqr4JFVL2CG9L0h3a-L8RgDgt5lnOyvg'; 
+const SHEET_NAME = 'Bookmarks';
+const DRIVE_FOLDER_ID = '1LVw4RfpIl-mxtiQWbMhF5kQcL7ro6ard'; 
 
 function doGet(e) {
-  // 만약 URL 파라미터에 action=getEntries가 있으면 JSON 반환 (API 모드)
   if (e && e.parameter.action === 'getEntries') {
     const data = getEntries();
     return ContentService.createTextOutput(JSON.stringify({success: true, data: data}))
       .setMimeType(ContentService.MimeType.JSON);
   }
-
-  // 기본은 HTML 페이지 반환
-  return HtmlService.createHtmlOutputFromFile('index')
-    .setTitle('Shorts Favs')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+  return HtmlService.createHtmlOutputFromFile('index').setTitle('Shorts Favs');
 }
 
-/**
- * 외부에서 POST 요청이 올 때 처리 (API 모드)
- */
 function doPost(e) {
   try {
-    const postData = JSON.parse(e.postData.contents);
-    const action = postData.action;
-    const data = postData.data;
+    let postData = JSON.parse(e.postData.contents);
+    const { action, data } = postData;
 
     if (action === 'addEntry') {
-      const result = addEntry(data);
-      return ContentService.createTextOutput(JSON.stringify(result))
-        .setMimeType(ContentService.MimeType.JSON);
+      return ContentService.createTextOutput(JSON.stringify(addEntry(data))).setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'updateEntry') {
+      return ContentService.createTextOutput(JSON.stringify(updateEntry(data))).setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'deleteEntry') {
+      return ContentService.createTextOutput(JSON.stringify(deleteEntry(data.id))).setMimeType(ContentService.MimeType.JSON);
     }
+    
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: "Unknown action"})).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({success: false, message: err.toString()}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({success: false, message: err.toString()})).setMimeType(ContentService.MimeType.JSON);
   }
 }
 
+function getTargetSheet(ss) {
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.getSheets()[0];
+    if (sheet && sheet.getLastRow() === 0) sheet.setName(SHEET_NAME);
+  }
+  return sheet;
+}
+
 function getEntries() {
-  const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheets()[0];
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return [];
-  
-  const headers = data[0];
-  return data.slice(1).map((row, idx) => {
-    let obj = { id: (idx + 1).toString() };
-    headers.forEach((header, colIdx) => {
-      obj[header.toString().toLowerCase()] = row[colIdx];
+  try {
+    const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getTargetSheet(ss);
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return [];
+    
+    const headers = data[0].map(h => h.toString().toLowerCase().trim());
+    return data.slice(1).map((row) => {
+      let obj = {};
+      headers.forEach((header, colIdx) => {
+        if (header) obj[header] = row[colIdx];
+      });
+      return obj;
     });
-    return obj;
-  });
+  } catch (e) {
+    return [];
+  }
 }
 
 function addEntry(entry) {
-  const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheets()[0];
-  sheet.appendRow([
-    entry.date || new Date().toISOString(),
-    entry.url,
-    entry.thumbnail,
-    entry.memo,
-    entry.category
-  ]);
-  return { success: true };
+  try {
+    const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getTargetSheet(ss);
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(['id', 'date', 'url', 'thumbnail', 'memo', 'category']);
+    }
+    sheet.appendRow([entry.id, entry.date, entry.url, entry.thumbnail, entry.memo, entry.category]);
+    return { success: true };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
 }
 
-function uploadImage(base64Data, fileName) {
-  const folder = DRIVE_FOLDER_ID ? DriveApp.getFolderById(DRIVE_FOLDER_ID) : DriveApp.getRootFolder();
-  const contentType = base64Data.split(',')[0].split(':')[1].split(';')[0];
-  const bytes = Utilities.base64Decode(base64Data.split(',')[1]);
-  const blob = Utilities.newBlob(bytes, contentType, fileName || 'upload_' + Date.now());
-  const file = folder.createFile(blob);
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  return file.getDownloadUrl();
+function updateEntry(entry) {
+  try {
+    const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getTargetSheet(ss);
+    const data = sheet.getDataRange().getValues();
+    const idColumnIndex = 0; // 'id'가 첫 번째 컬럼이라고 가정
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idColumnIndex].toString() === entry.id.toString()) {
+        // 행 번호는 i+1 (0-based index 때문)
+        // id, date, url, thumbnail, memo, category 순서
+        const range = sheet.getRange(i + 1, 1, 1, 6);
+        range.setValues([[entry.id, entry.date, entry.url, entry.thumbnail, entry.memo, entry.category]]);
+        return { success: true };
+      }
+    }
+    return { success: false, message: "ID not found" };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}
+
+function deleteEntry(id) {
+  try {
+    const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getTargetSheet(ss);
+    const data = sheet.getDataRange().getValues();
+    const idColumnIndex = 0;
+
+    for (let i = 1; i < data.length; i++) {
+      if (data[i][idColumnIndex].toString() === id.toString()) {
+        sheet.deleteRow(i + 1);
+        return { success: true };
+      }
+    }
+    return { success: false, message: "ID not found" };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
 }

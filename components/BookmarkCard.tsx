@@ -1,15 +1,16 @@
 
 import React from 'react';
-import { ExternalLink, Trash2, Calendar } from 'lucide-react';
+import { ExternalLink, Trash2, Calendar, Edit3 } from 'lucide-react';
 import { Bookmark } from '../types';
 import { CATEGORY_COLORS } from '../constants';
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
   onDelete: (id: string) => void;
+  onEdit: (bookmark: Bookmark) => void;
 }
 
-const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark, onDelete }) => {
+const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark, onDelete, onEdit }) => {
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return `${d.getMonth() + 1}/${d.getDate()}`;
@@ -50,14 +51,22 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark, onDelete }) => {
             <Calendar className="h-3 w-3" />
             {formatDate(bookmark.date)}
           </div>
-          <button 
-            onClick={() => {
-              if (confirm('삭제하시겠습니까?')) onDelete(bookmark.id);
-            }}
-            className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          <div className="flex gap-1">
+            <button 
+              onClick={() => onEdit(bookmark)}
+              className="p-1.5 text-slate-300 hover:text-indigo-600 transition-colors"
+            >
+              <Edit3 className="h-3.5 w-3.5" />
+            </button>
+            <button 
+              onClick={() => {
+                if (confirm('삭제하시겠습니까?')) onDelete(bookmark.id);
+              }}
+              className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { Category } from './types';
 
 // 구글 앱스 스크립트 배포 후 받은 웹 앱 URL을 여기에 넣으세요.
 // 예: 'https://script.google.com/macros/s/AKfycb.../exec'
-export const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxna1lLyhUuVXAuoS9OKATEpWbLpXcWBybXUi1xP2S1ZeHb3zOu9HbEzGileCxRQprgfw/exec'; 
+export const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyUkJT6sN7oCr8-M8cMD4zx_a6UlrHacg16koIoA-YColKccO9a3TSQDCc7yTEKV8GAXw/exec'; 
 
 export const CATEGORIES: Category[] = [
   '전체',
