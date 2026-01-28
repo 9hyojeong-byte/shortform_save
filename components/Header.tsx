@@ -11,7 +11,7 @@ const Header: React.FC = () => {
             <BookmarkCheck className="h-5 w-5 text-white" />
           </div>
           <h1 className="text-lg font-bold bg-gradient-to-r from-indigo-600 to-indigo-400 bg-clip-text text-transparent">
-            Shorts Favs
+            쿠쿠 숏폼저장소
           </h1>
         </div>
         <div className="flex gap-2">
