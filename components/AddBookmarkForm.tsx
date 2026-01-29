@@ -27,12 +27,42 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
     }
   }, [editingBookmark]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 이미지 압축 및 리사이징 함수
+  const compressImage = (base64Str: string): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 400; // 가로 크기 제한
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          // JPEG 형식으로 압축 (품질 0.7)
+          const compressed = canvas.toDataURL('image/jpeg', 0.7);
+          resolve(compressed);
+        } else {
+          resolve(base64Str);
+        }
+      };
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setIsProcessing(true);
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setThumbnail(reader.result as string);
+      reader.onloadend = async () => {
+        const base64 = reader.result as string;
+        // 압축 실행
+        const compressedBase64 = await compressImage(base64);
+        setThumbnail(compressedBase64);
+        setIsProcessing(false);
       };
       reader.readAsDataURL(file);
     }
@@ -166,14 +196,23 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
               <Image className="h-3 w-3" /> 썸네일
             </label>
             <div className="flex gap-4 items-center">
-              <div className="w-20 aspect-[3/4] rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center">
-                {thumbnail ? <img src={thumbnail} className="w-full h-full object-cover" alt="Preview" /> : <Image className="h-6 w-6 text-slate-300" />}
+              <div className="w-20 aspect-[3/4] rounded-xl bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center relative">
+                {thumbnail ? (
+                  <img src={thumbnail} className="w-full h-full object-cover" alt="Preview" />
+                ) : (
+                  <Image className="h-6 w-6 text-slate-300" />
+                )}
+                {isProcessing && (
+                  <div className="absolute inset-0 bg-white/60 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-indigo-600" />
+                  </div>
+                )}
               </div>
               <div className="flex-grow">
                 <label className="flex items-center justify-center gap-2 w-full py-3 bg-white border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-all border-dashed">
                   <Upload className="h-4 w-4" />
                   이미지 업로드
-                  <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+                  <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={isProcessing} />
                 </label>
               </div>
             </div>
@@ -181,7 +220,11 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
 
           <div className="pt-2 flex gap-3">
             <button type="button" onClick={onClose} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-[1.25rem] font-bold text-sm">취소</button>
-            <button type="submit" className="flex-[2] py-4 bg-indigo-600 text-white rounded-[1.25rem] font-bold text-sm shadow-lg shadow-indigo-200">
+            <button 
+              type="submit" 
+              disabled={isProcessing}
+              className="flex-[2] py-4 bg-indigo-600 text-white rounded-[1.25rem] font-bold text-sm shadow-lg shadow-indigo-200 disabled:bg-indigo-400"
+            >
               {editingBookmark ? '수정 완료' : '저장하기'}
             </button>
           </div>
