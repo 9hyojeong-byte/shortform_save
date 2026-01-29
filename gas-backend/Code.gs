@@ -54,6 +54,15 @@ function getSheet(ss, name) {
   return sheet;
 }
 
+function getColumnMapping(headers) {
+  const mapping = {};
+  headers.forEach((h, i) => {
+    const key = h.toString().toLowerCase().trim();
+    mapping[key] = i;
+  });
+  return mapping;
+}
+
 function getEntries() {
   try {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
@@ -90,7 +99,7 @@ function getCategories() {
     const sheet = getSheet(ss, CATEGORY_SHEET_NAME);
     const data = sheet.getDataRange().getValues();
     if (data.length === 0) return [];
-    return data.flat().filter(v => v !== "");
+    return data.flat().filter(v => v !== "" && v !== null);
   } catch (e) {
     return [];
   }
@@ -115,9 +124,13 @@ function addEntry(entry) {
   try {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
     const sheet = getSheet(ss, SHEET_NAME);
+    
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(['id', 'date', 'url', 'thumbnail', 'memo', 'category']);
     }
+    
+    const headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    const mapping = getColumnMapping(headers);
     
     let categoryStr = "";
     if (Array.isArray(entry.category)) {
@@ -126,14 +139,15 @@ function addEntry(entry) {
       categoryStr = String(entry.category);
     }
 
-    sheet.appendRow([
-      String(entry.id), 
-      String(entry.date), 
-      String(entry.url), 
-      String(entry.thumbnail), 
-      String(entry.memo), 
-      categoryStr
-    ]);
+    const rowToAppend = new Array(headers.length).fill("");
+    if (mapping.id !== undefined) rowToAppend[mapping.id] = String(entry.id);
+    if (mapping.date !== undefined) rowToAppend[mapping.date] = String(entry.date);
+    if (mapping.url !== undefined) rowToAppend[mapping.url] = String(entry.url);
+    if (mapping.thumbnail !== undefined) rowToAppend[mapping.thumbnail] = entry.thumbnail ? String(entry.thumbnail) : "";
+    if (mapping.memo !== undefined) rowToAppend[mapping.memo] = String(entry.memo || "");
+    if (mapping.category !== undefined) rowToAppend[mapping.category] = categoryStr;
+
+    sheet.appendRow(rowToAppend);
     return { success: true };
   } catch (e) {
     return { success: false, message: e.toString() };
@@ -145,7 +159,10 @@ function updateEntry(entry) {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
     const sheet = getSheet(ss, SHEET_NAME);
     const data = sheet.getDataRange().getValues();
-    const idColumnIndex = 0;
+    const headers = data[0];
+    const mapping = getColumnMapping(headers);
+    
+    const idColumnIndex = mapping.id || 0;
 
     let categoryStr = "";
     if (Array.isArray(entry.category)) {
@@ -157,15 +174,17 @@ function updateEntry(entry) {
     for (let i = 1; i < data.length; i++) {
       if (data[i][idColumnIndex].toString() === entry.id.toString()) {
         const rowNum = i + 1;
-        const rowValues = [[
-          String(entry.id), 
-          String(entry.date), 
-          String(entry.url), 
-          String(entry.thumbnail), 
-          String(entry.memo), 
-          categoryStr
-        ]];
-        sheet.getRange(rowNum, 1, 1, 6).setValues(rowValues);
+        
+        // Prepare row values based on header mapping
+        const rowValues = new Array(headers.length).fill("");
+        if (mapping.id !== undefined) rowValues[mapping.id] = String(entry.id);
+        if (mapping.date !== undefined) rowValues[mapping.date] = String(entry.date);
+        if (mapping.url !== undefined) rowValues[mapping.url] = String(entry.url);
+        if (mapping.thumbnail !== undefined) rowValues[mapping.thumbnail] = entry.thumbnail ? String(entry.thumbnail) : data[i][mapping.thumbnail];
+        if (mapping.memo !== undefined) rowValues[mapping.memo] = String(entry.memo || "");
+        if (mapping.category !== undefined) rowValues[mapping.category] = categoryStr;
+
+        sheet.getRange(rowNum, 1, 1, headers.length).setValues([rowValues]);
         return { success: true };
       }
     }
@@ -180,7 +199,9 @@ function deleteEntry(id) {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
     const sheet = getSheet(ss, SHEET_NAME);
     const data = sheet.getDataRange().getValues();
-    const idColumnIndex = 0;
+    const headers = data[0];
+    const mapping = getColumnMapping(headers);
+    const idColumnIndex = mapping.id || 0;
 
     for (let i = 1; i < data.length; i++) {
       if (data[i][idColumnIndex].toString() === id.toString()) {

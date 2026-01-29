@@ -20,7 +20,6 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Custom category addition
   const [newCatName, setNewCatName] = useState('');
   const [showAddCat, setShowAddCat] = useState(false);
 
@@ -33,21 +32,25 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
     }
   }, [editingBookmark]);
 
+  // Aggressive compression for Google Sheets compatibility (Target < 37KB / 50,000 chars)
   const compressImage = (base64Str: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new window.Image();
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400;
+        const MAX_WIDTH = 320; // Reduced from 400
         const scaleSize = MAX_WIDTH / img.width;
         canvas.width = MAX_WIDTH;
         canvas.height = img.height * scaleSize;
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const compressed = canvas.toDataURL('image/jpeg', 0.7);
+          // 0.4 quality is sufficient for small thumbnails and significantly reduces string size
+          const compressed = canvas.toDataURL('image/jpeg', 0.4);
           resolve(compressed);
         } else {
           resolve(base64Str);
@@ -101,9 +104,9 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
       if (result.categories && Array.isArray(result.categories)) {
         setSelectedCategories(result.categories.filter((c: string) => categories.includes(c)) as Category[]);
       }
-      setThumbnail(`https://picsum.photos/seed/${result.thumbnailKeyword || 'video'}/400/600`);
+      setThumbnail(`https://picsum.photos/seed/${result.thumbnailKeyword || 'video'}/320/480`);
     } catch (error) {
-      setThumbnail(`https://picsum.photos/seed/${Math.random()}/400/600`);
+      setThumbnail(`https://picsum.photos/seed/${Math.random()}/320/480`);
     } finally {
       setIsProcessing(false);
     }
@@ -135,13 +138,15 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
     
     setIsSaving(true);
     
+    const finalThumbnail = thumbnail || `https://picsum.photos/seed/${Math.random()}/320/480`;
+    
     const bookmarkData: Bookmark = {
       id: editingBookmark ? editingBookmark.id : Date.now().toString(),
       date: editingBookmark ? editingBookmark.date : new Date().toISOString(),
       url,
       memo,
       category: selectedCategories,
-      thumbnail: thumbnail || `https://picsum.photos/seed/${Math.random()}/400/600`
+      thumbnail: finalThumbnail
     };
     
     try {
@@ -166,7 +171,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
               </div>
             </div>
             <p className="mt-6 text-slate-800 font-bold text-lg">데이터를 안전하게 저장 중...</p>
-            <p className="mt-1 text-slate-500 text-sm">잠시만 기다려주세요</p>
+            <p className="mt-1 text-slate-500 text-sm">썸네일 용량이 큰 경우 시간이 걸릴 수 있습니다</p>
           </div>
         )}
 
@@ -294,7 +299,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
               <div className="flex-grow">
                 <label className="flex items-center justify-center gap-2 w-full py-3 bg-white border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-all border-dashed">
                   <Upload className="h-4 w-4" />
-                  이미지 업로드
+                  {editingBookmark ? '썸네일 교체' : '이미지 업로드'}
                   <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={isProcessing || isSaving} />
                 </label>
               </div>
@@ -312,7 +317,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
               {isSaving ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {editingBookmark ? '수정 중...' : '저장 중...'}
+                  처리 중...
                 </>
               ) : (
                 <>

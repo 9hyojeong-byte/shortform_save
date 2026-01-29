@@ -1,7 +1,7 @@
 
 import { Category } from './types';
 
-export const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby11oi5HpRFkS5ULanPL4bieBBy4DgV4-RKmzw0mGHZzTaF7EorEJhEK5723qtsSSnQLA/exec'; 
+export const GAS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycby26k2eU4YbUhmOuqKwwifBbPski79FgewX1yGKfWN6u50cn_cmgVCO1TxHk_Gt4eEU4A/exec'; 
 
 export const INITIAL_CATEGORIES: Category[] = [
   '전체',
