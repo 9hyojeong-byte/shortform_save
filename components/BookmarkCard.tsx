@@ -24,10 +24,12 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark, onDelete, onEdit 
           alt="Thumbnail" 
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <div className="absolute top-2 left-2">
-          <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border ${CATEGORY_COLORS[bookmark.category]}`}>
-            {bookmark.category}
-          </span>
+        <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
+          {Array.isArray(bookmark.category) && bookmark.category.map(cat => (
+            <span key={cat} className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border shadow-sm ${CATEGORY_COLORS[cat]}`}>
+              {cat}
+            </span>
+          ))}
         </div>
         <a 
           href={bookmark.url} 

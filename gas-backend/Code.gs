@@ -5,7 +5,6 @@
 
 const SHEET_ID = '1yfwSgo-VuHVbqr4JFVL2CG9L0h3a-L8RgDgt5lnOyvg'; 
 const SHEET_NAME = 'Bookmarks';
-const DRIVE_FOLDER_ID = '1LVw4RfpIl-mxtiQWbMhF5kQcL7ro6ard'; 
 
 function doGet(e) {
   if (e && e.parameter.action === 'getEntries') {
@@ -55,7 +54,13 @@ function getEntries() {
     return data.slice(1).map((row) => {
       let obj = {};
       headers.forEach((header, colIdx) => {
-        if (header) obj[header] = row[colIdx];
+        let val = row[colIdx];
+        if (header === 'category') {
+          // Convert comma-separated string back to array
+          obj[header] = val ? val.toString().split(',') : [];
+        } else {
+          obj[header] = val;
+        }
       });
       return obj;
     });
@@ -71,7 +76,9 @@ function addEntry(entry) {
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(['id', 'date', 'url', 'thumbnail', 'memo', 'category']);
     }
-    sheet.appendRow([entry.id, entry.date, entry.url, entry.thumbnail, entry.memo, entry.category]);
+    // Join category array into string for sheet storage
+    const categoryStr = Array.isArray(entry.category) ? entry.category.join(',') : entry.category;
+    sheet.appendRow([entry.id, entry.date, entry.url, entry.thumbnail, entry.memo, categoryStr]);
     return { success: true };
   } catch (e) {
     return { success: false, message: e.toString() };
@@ -83,14 +90,14 @@ function updateEntry(entry) {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
     const sheet = getTargetSheet(ss);
     const data = sheet.getDataRange().getValues();
-    const idColumnIndex = 0; // 'id'가 첫 번째 컬럼이라고 가정
+    const idColumnIndex = 0;
+
+    const categoryStr = Array.isArray(entry.category) ? entry.category.join(',') : entry.category;
 
     for (let i = 1; i < data.length; i++) {
       if (data[i][idColumnIndex].toString() === entry.id.toString()) {
-        // 행 번호는 i+1 (0-based index 때문)
-        // id, date, url, thumbnail, memo, category 순서
         const range = sheet.getRange(i + 1, 1, 1, 6);
-        range.setValues([[entry.id, entry.date, entry.url, entry.thumbnail, entry.memo, entry.category]]);
+        range.setValues([[entry.id, entry.date, entry.url, entry.thumbnail, entry.memo, categoryStr]]);
         return { success: true };
       }
     }

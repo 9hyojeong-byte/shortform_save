@@ -36,13 +36,14 @@ const App: React.FC = () => {
   useEffect(() => {
     let result = bookmarks;
     if (activeCategory !== '전체') {
-      result = result.filter(b => b.category === activeCategory);
+      // Check if bookmark has the selected category in its array
+      result = result.filter(b => Array.isArray(b.category) && b.category.includes(activeCategory));
     }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(b => 
         b.memo.toLowerCase().includes(q) ||
-        b.category.toLowerCase().includes(q)
+        (Array.isArray(b.category) && b.category.some(c => c.toLowerCase().includes(q)))
       );
     }
     setFilteredBookmarks([...result].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
@@ -51,13 +52,11 @@ const App: React.FC = () => {
   const handleSaveBookmark = async (bookmark: Bookmark) => {
     setIsLoading(true);
     if (editingBookmark) {
-      // Update
       const result = await gasApi.updateEntry(bookmark);
       if (result.success) {
         setBookmarks(prev => prev.map(b => b.id === bookmark.id ? bookmark : b));
       }
     } else {
-      // Add
       const result = await gasApi.addEntry(bookmark);
       if (result.success) {
         setBookmarks(prev => [bookmark, ...prev]);

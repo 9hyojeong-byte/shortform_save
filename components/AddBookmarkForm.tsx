@@ -14,7 +14,7 @@ interface AddBookmarkFormProps {
 const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onClose, onSubmit }) => {
   const [url, setUrl] = useState('');
   const [memo, setMemo] = useState('');
-  const [category, setCategory] = useState<Category>('인증샷');
+  const [selectedCategories, setSelectedCategories] = useState<Category[]>(['인증샷']);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -22,19 +22,18 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
     if (editingBookmark) {
       setUrl(editingBookmark.url);
       setMemo(editingBookmark.memo);
-      setCategory(editingBookmark.category);
+      setSelectedCategories(Array.isArray(editingBookmark.category) ? editingBookmark.category : [editingBookmark.category as any]);
       setThumbnail(editingBookmark.thumbnail);
     }
   }, [editingBookmark]);
 
-  // 이미지 압축 및 리사이징 함수
   const compressImage = (base64Str: string): Promise<string> => {
     return new Promise((resolve) => {
       const img = new window.Image();
       img.src = base64Str;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 400; // 가로 크기 제한
+        const MAX_WIDTH = 400;
         const scaleSize = MAX_WIDTH / img.width;
         canvas.width = MAX_WIDTH;
         canvas.height = img.height * scaleSize;
@@ -42,7 +41,6 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // JPEG 형식으로 압축 (품질 0.7)
           const compressed = canvas.toDataURL('image/jpeg', 0.7);
           resolve(compressed);
         } else {
@@ -59,7 +57,6 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64 = reader.result as string;
-        // 압축 실행
         const compressedBase64 = await compressImage(base64);
         setThumbnail(compressedBase64);
         setIsProcessing(false);
@@ -75,24 +72,29 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `I have this short-form video URL: ${url}. Predict what this video might be about and suggest a memo and category (프리다이빙, 여행, 우정릴스, 인증샷, 귀여움, 캠핑팁).`,
+        contents: `I have this short-form video URL: ${url}. Predict what this video might be about and suggest a memo and multiple categories from: ${CATEGORIES.filter(c => c !== '전체').join(', ')}.`,
         config: {
            responseMimeType: "application/json",
            responseSchema: {
              type: Type.OBJECT,
              properties: {
                memo: { type: Type.STRING },
-               category: { type: Type.STRING },
+               categories: { 
+                 type: Type.ARRAY,
+                 items: { type: Type.STRING }
+               },
                thumbnailKeyword: { type: Type.STRING }
              },
-             required: ["memo", "category", "thumbnailKeyword"]
+             required: ["memo", "categories", "thumbnailKeyword"]
            }
         }
       });
 
       const result = JSON.parse(response.text || '{}');
       setMemo(prev => prev || result.memo);
-      setCategory(result.category as Category || '인증샷');
+      if (result.categories && Array.isArray(result.categories)) {
+        setSelectedCategories(result.categories.filter((c: string) => CATEGORIES.includes(c as Category)) as Category[]);
+      }
       setThumbnail(`https://picsum.photos/seed/${result.thumbnailKeyword || 'video'}/400/600`);
     } catch (error) {
       setThumbnail(`https://picsum.photos/seed/${Math.random()}/400/600`);
@@ -101,16 +103,25 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
     }
   };
 
+  const toggleCategory = (cat: Category) => {
+    setSelectedCategories(prev => 
+      prev.includes(cat) 
+        ? prev.filter(c => c !== cat) 
+        : [...prev, cat]
+    );
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!url) return alert('URL은 필수입니다.');
+    if (selectedCategories.length === 0) return alert('카테고리를 최소 하나 이상 선택해주세요.');
     
     const bookmarkData: Bookmark = {
       id: editingBookmark ? editingBookmark.id : Date.now().toString(),
       date: editingBookmark ? editingBookmark.date : new Date().toISOString(),
       url,
       memo,
-      category: category === '전체' ? '인증샷' : category,
+      category: selectedCategories,
       thumbnail: thumbnail || `https://picsum.photos/seed/${Math.random()}/400/600`
     };
     
@@ -151,7 +162,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
                   className="absolute right-2 top-1.5 bottom-1.5 px-3 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 disabled:bg-slate-300 flex items-center gap-1.5 transition-colors"
                 >
                   {isProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                  자동 추출
+                  AI 분석
                 </button>
               )}
             </div>
@@ -172,17 +183,17 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-slate-500 flex items-center gap-1.5 ml-1">
-              <TypeIcon className="h-3 w-3" /> 카테고리
+              <TypeIcon className="h-3 w-3" /> 카테고리 (중복 선택 가능)
             </label>
             <div className="grid grid-cols-3 gap-2">
               {CATEGORIES.filter(c => c !== '전체').map(cat => (
                 <button
                   key={cat}
                   type="button"
-                  onClick={() => setCategory(cat)}
+                  onClick={() => toggleCategory(cat)}
                   className={`py-2 px-1 rounded-xl text-[10px] font-bold border transition-all
-                    ${category === cat 
-                      ? 'bg-indigo-50 border-indigo-200 text-indigo-600 ring-2 ring-indigo-500/20' 
+                    ${selectedCategories.includes(cat) 
+                      ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
                       : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'}`}
                 >
                   {cat}
@@ -211,7 +222,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
               <div className="flex-grow">
                 <label className="flex items-center justify-center gap-2 w-full py-3 bg-white border-2 border-slate-200 rounded-2xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-all border-dashed">
                   <Upload className="h-4 w-4" />
-                  이미지 업로드
+                  스크린샷 업로드
                   <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} disabled={isProcessing} />
                 </label>
               </div>
