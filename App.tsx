@@ -36,7 +36,6 @@ const App: React.FC = () => {
   useEffect(() => {
     let result = bookmarks;
     if (activeCategory !== '전체') {
-      // Check if bookmark has the selected category in its array
       result = result.filter(b => Array.isArray(b.category) && b.category.includes(activeCategory));
     }
     if (searchQuery) {
@@ -50,30 +49,38 @@ const App: React.FC = () => {
   }, [bookmarks, activeCategory, searchQuery]);
 
   const handleSaveBookmark = async (bookmark: Bookmark) => {
-    setIsLoading(true);
-    if (editingBookmark) {
-      const result = await gasApi.updateEntry(bookmark);
-      if (result.success) {
-        setBookmarks(prev => prev.map(b => b.id === bookmark.id ? bookmark : b));
+    // We don't call setIsLoading(true) here because the Form component 
+    // already handles its own internal "Saving" state for better UX.
+    try {
+      if (editingBookmark) {
+        const result = await gasApi.updateEntry(bookmark);
+        if (result.success) {
+          setBookmarks(prev => prev.map(b => b.id === bookmark.id ? bookmark : b));
+        }
+      } else {
+        const result = await gasApi.addEntry(bookmark);
+        if (result.success) {
+          setBookmarks(prev => [bookmark, ...prev]);
+        }
       }
-    } else {
-      const result = await gasApi.addEntry(bookmark);
-      if (result.success) {
-        setBookmarks(prev => [bookmark, ...prev]);
-      }
+      setIsFormOpen(false);
+      setEditingBookmark(null);
+    } catch (error) {
+      console.error("Error saving bookmark:", error);
+      throw error; // Let the form handle the error catch
     }
-    setIsFormOpen(false);
-    setEditingBookmark(null);
-    setIsLoading(false);
   };
 
   const handleDeleteBookmark = async (id: string) => {
     setIsLoading(true);
-    const result = await gasApi.deleteEntry(id);
-    if (result.success) {
-      setBookmarks(prev => prev.filter(b => b.id !== id));
+    try {
+      const result = await gasApi.deleteEntry(id);
+      if (result.success) {
+        setBookmarks(prev => prev.filter(b => b.id !== id));
+      }
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const handleEditClick = (bookmark: Bookmark) => {
@@ -103,10 +110,10 @@ const App: React.FC = () => {
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 opacity-50">
             <Loader2 className="h-8 w-8 animate-spin text-indigo-600 mb-2" />
-            <p className="text-sm font-medium">처리 중...</p>
+            <p className="text-sm font-medium text-slate-600 tracking-tight">데이터 동기화 중...</p>
           </div>
         ) : filteredBookmarks.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 mt-6">
+          <div className="grid grid-cols-2 gap-4 mt-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {filteredBookmarks.map((bookmark) => (
               <BookmarkCard 
                 key={bookmark.id} 
@@ -117,18 +124,18 @@ const App: React.FC = () => {
             ))}
           </div>
         ) : (
-          <div className="text-center py-20">
+          <div className="text-center py-20 animate-in fade-in duration-700">
             <div className="bg-slate-100 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <PlayCircle className="h-8 w-8 text-slate-400" />
+              <PlayCircle className="h-8 w-8 text-slate-300" />
             </div>
-            <p className="text-slate-500 text-sm">콘텐츠가 없습니다.</p>
+            <p className="text-slate-400 text-sm font-medium">콘텐츠가 비어 있습니다.</p>
           </div>
         )}
       </main>
 
       <button
         onClick={() => { setEditingBookmark(null); setIsFormOpen(true); }}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-indigo-700 active:scale-95 transition-all z-40"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-indigo-600 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-indigo-700 hover:scale-110 active:scale-90 transition-all z-40"
       >
         <Plus className="h-6 w-6" />
       </button>
