@@ -5,13 +5,23 @@
 
 const SHEET_ID = '1yfwSgo-VuHVbqr4JFVL2CG9L0h3a-L8RgDgt5lnOyvg'; 
 const SHEET_NAME = 'Bookmarks';
+const CATEGORY_SHEET_NAME = 'Categories';
 
 function doGet(e) {
-  if (e && e.parameter.action === 'getEntries') {
+  const action = e ? e.parameter.action : '';
+  
+  if (action === 'getEntries') {
     const data = getEntries();
     return ContentService.createTextOutput(JSON.stringify({success: true, data: data}))
       .setMimeType(ContentService.MimeType.JSON);
   }
+  
+  if (action === 'getCategories') {
+    const data = getCategories();
+    return ContentService.createTextOutput(JSON.stringify({success: true, data: data}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  
   return HtmlService.createHtmlOutputFromFile('index').setTitle('Shorts Favs');
 }
 
@@ -26,6 +36,8 @@ function doPost(e) {
       return ContentService.createTextOutput(JSON.stringify(updateEntry(data))).setMimeType(ContentService.MimeType.JSON);
     } else if (action === 'deleteEntry') {
       return ContentService.createTextOutput(JSON.stringify(deleteEntry(data.id))).setMimeType(ContentService.MimeType.JSON);
+    } else if (action === 'addCategory') {
+      return ContentService.createTextOutput(JSON.stringify(addCategory(data.category))).setMimeType(ContentService.MimeType.JSON);
     }
     
     return ContentService.createTextOutput(JSON.stringify({success: false, message: "Unknown action"})).setMimeType(ContentService.MimeType.JSON);
@@ -34,11 +46,10 @@ function doPost(e) {
   }
 }
 
-function getTargetSheet(ss) {
-  let sheet = ss.getSheetByName(SHEET_NAME);
+function getSheet(ss, name) {
+  let sheet = ss.getSheetByName(name);
   if (!sheet) {
-    sheet = ss.getSheets()[0];
-    if (sheet && sheet.getLastRow() === 0) sheet.setName(SHEET_NAME);
+    sheet = ss.insertSheet(name);
   }
   return sheet;
 }
@@ -46,7 +57,7 @@ function getTargetSheet(ss) {
 function getEntries() {
   try {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = getTargetSheet(ss);
+    const sheet = getSheet(ss, SHEET_NAME);
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return [];
     
@@ -56,8 +67,12 @@ function getEntries() {
       headers.forEach((header, colIdx) => {
         let val = row[colIdx];
         if (header === 'category') {
-          // Convert comma-separated string back to array
-          obj[header] = val ? val.toString().split(',') : [];
+          const valStr = val ? val.toString() : "";
+          if (valStr.indexOf('[Ljava.lang.Object') > -1) {
+            obj[header] = [];
+          } else {
+            obj[header] = valStr ? valStr.split(',').filter(v => v.trim() !== "") : [];
+          }
         } else {
           obj[header] = val;
         }
@@ -69,16 +84,56 @@ function getEntries() {
   }
 }
 
+function getCategories() {
+  try {
+    const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getSheet(ss, CATEGORY_SHEET_NAME);
+    const data = sheet.getDataRange().getValues();
+    if (data.length === 0) return [];
+    return data.flat().filter(v => v !== "");
+  } catch (e) {
+    return [];
+  }
+}
+
+function addCategory(category) {
+  try {
+    const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getSheet(ss, CATEGORY_SHEET_NAME);
+    const data = sheet.getDataRange().getValues().flat();
+    
+    if (data.indexOf(category) === -1) {
+      sheet.appendRow([category]);
+    }
+    return { success: true };
+  } catch (e) {
+    return { success: false, message: e.toString() };
+  }
+}
+
 function addEntry(entry) {
   try {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = getTargetSheet(ss);
+    const sheet = getSheet(ss, SHEET_NAME);
     if (sheet.getLastRow() === 0) {
       sheet.appendRow(['id', 'date', 'url', 'thumbnail', 'memo', 'category']);
     }
-    // Join category array into string for sheet storage
-    const categoryStr = Array.isArray(entry.category) ? entry.category.join(',') : entry.category;
-    sheet.appendRow([entry.id, entry.date, entry.url, entry.thumbnail, entry.memo, categoryStr]);
+    
+    let categoryStr = "";
+    if (Array.isArray(entry.category)) {
+      categoryStr = entry.category.join(',');
+    } else if (entry.category) {
+      categoryStr = String(entry.category);
+    }
+
+    sheet.appendRow([
+      String(entry.id), 
+      String(entry.date), 
+      String(entry.url), 
+      String(entry.thumbnail), 
+      String(entry.memo), 
+      categoryStr
+    ]);
     return { success: true };
   } catch (e) {
     return { success: false, message: e.toString() };
@@ -88,16 +143,29 @@ function addEntry(entry) {
 function updateEntry(entry) {
   try {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = getTargetSheet(ss);
+    const sheet = getSheet(ss, SHEET_NAME);
     const data = sheet.getDataRange().getValues();
     const idColumnIndex = 0;
 
-    const categoryStr = Array.isArray(entry.category) ? entry.category.join(',') : entry.category;
+    let categoryStr = "";
+    if (Array.isArray(entry.category)) {
+      categoryStr = entry.category.join(',');
+    } else if (entry.category) {
+      categoryStr = String(entry.category);
+    }
 
     for (let i = 1; i < data.length; i++) {
       if (data[i][idColumnIndex].toString() === entry.id.toString()) {
-        const range = sheet.getRange(i + 1, 1, 1, 6);
-        range.setValues([[entry.id, entry.date, entry.url, entry.thumbnail, entry.memo, categoryStr]]);
+        const rowNum = i + 1;
+        const rowValues = [[
+          String(entry.id), 
+          String(entry.date), 
+          String(entry.url), 
+          String(entry.thumbnail), 
+          String(entry.memo), 
+          categoryStr
+        ]];
+        sheet.getRange(rowNum, 1, 1, 6).setValues(rowValues);
         return { success: true };
       }
     }
@@ -110,7 +178,7 @@ function updateEntry(entry) {
 function deleteEntry(id) {
   try {
     const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = getTargetSheet(ss);
+    const sheet = getSheet(ss, SHEET_NAME);
     const data = sheet.getDataRange().getValues();
     const idColumnIndex = 0;
 

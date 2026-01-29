@@ -7,9 +7,11 @@ import FilterBar from './components/FilterBar';
 import BookmarkCard from './components/BookmarkCard';
 import AddBookmarkForm from './components/AddBookmarkForm';
 import { gasApi } from './api';
+import { INITIAL_CATEGORIES } from './constants';
 
 const App: React.FC = () => {
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [categories, setCategories] = useState<Category[]>(INITIAL_CATEGORIES);
   const [filteredBookmarks, setFilteredBookmarks] = useState<Bookmark[]>([]);
   const [activeCategory, setActiveCategory] = useState<Category>('전체');
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -17,21 +19,28 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchBookmarks = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const data = await gasApi.getEntries();
-      setBookmarks(data);
+      const [entriesData, categoriesData] = await Promise.all([
+        gasApi.getEntries(),
+        gasApi.getCategories()
+      ]);
+      setBookmarks(entriesData);
+      
+      // Merge initial categories with ones from server, remove duplicates
+      const mergedCats = Array.from(new Set([...INITIAL_CATEGORIES, ...categoriesData]));
+      setCategories(mergedCats);
     } catch (error) {
-      console.error('Failed to fetch bookmarks:', error);
+      console.error('Failed to fetch data:', error);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchBookmarks();
-  }, [fetchBookmarks]);
+    fetchData();
+  }, [fetchData]);
 
   useEffect(() => {
     let result = bookmarks;
@@ -49,8 +58,6 @@ const App: React.FC = () => {
   }, [bookmarks, activeCategory, searchQuery]);
 
   const handleSaveBookmark = async (bookmark: Bookmark) => {
-    // We don't call setIsLoading(true) here because the Form component 
-    // already handles its own internal "Saving" state for better UX.
     try {
       if (editingBookmark) {
         const result = await gasApi.updateEntry(bookmark);
@@ -67,7 +74,14 @@ const App: React.FC = () => {
       setEditingBookmark(null);
     } catch (error) {
       console.error("Error saving bookmark:", error);
-      throw error; // Let the form handle the error catch
+      throw error;
+    }
+  };
+
+  const handleAddCategory = async (newCat: string) => {
+    if (!categories.includes(newCat)) {
+      setCategories(prev => [...prev, newCat]);
+      await gasApi.addCategory(newCat);
     }
   };
 
@@ -105,7 +119,11 @@ const App: React.FC = () => {
           />
         </div>
 
-        <FilterBar activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
+        <FilterBar 
+          categories={categories}
+          activeCategory={activeCategory} 
+          onCategoryChange={setActiveCategory} 
+        />
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20 opacity-50">
@@ -142,6 +160,8 @@ const App: React.FC = () => {
 
       {isFormOpen && (
         <AddBookmarkForm 
+          categories={categories}
+          onAddCategory={handleAddCategory}
           editingBookmark={editingBookmark}
           onClose={() => { setIsFormOpen(false); setEditingBookmark(null); }} 
           onSubmit={handleSaveBookmark}

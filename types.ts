@@ -1,5 +1,5 @@
 
-export type Category = '전체' | '프리다이빙' | '여행' | '우정릴스' | '인증샷' | '귀여움' | '캠핑팁' | '바다' | '튜토리얼' | 'bgm' | '인생샷';
+export type Category = string;
 
 export interface Bookmark {
   id: string;
@@ -7,7 +7,7 @@ export interface Bookmark {
   url: string;
   thumbnail: string;
   memo: string;
-  category: Category[]; // Changed to array for multi-selection
+  category: Category[];
 }
 
 export interface GASResponse {

@@ -2,7 +2,7 @@
 import React from 'react';
 import { ExternalLink, Trash2, Calendar, Edit3 } from 'lucide-react';
 import { Bookmark } from '../types';
-import { CATEGORY_COLORS } from '../constants';
+import { getCategoryColor } from '../constants';
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
@@ -26,7 +26,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark, onDelete, onEdit 
         />
         <div className="absolute top-2 left-2 right-2 flex flex-wrap gap-1">
           {Array.isArray(bookmark.category) && bookmark.category.map(cat => (
-            <span key={cat} className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border shadow-sm ${CATEGORY_COLORS[cat]}`}>
+            <span key={cat} className={`px-2 py-0.5 rounded-lg text-[9px] font-bold border shadow-sm ${getCategoryColor(cat)}`}>
               {cat}
             </span>
           ))}

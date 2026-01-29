@@ -1,24 +1,28 @@
 
 import React, { useState, useEffect } from 'react';
-// Added Plus to the import list from lucide-react
-import { X, Link as LinkIcon, Type as TypeIcon, Image, Upload, Loader2, Sparkles, CheckCircle2, Plus } from 'lucide-react';
+import { X, Link as LinkIcon, Type as TypeIcon, Image, Upload, Loader2, Sparkles, CheckCircle2, Plus, Tag } from 'lucide-react';
 import { Bookmark, Category } from '../types';
-import { CATEGORIES } from '../constants';
 import { GoogleGenAI, Type } from "@google/genai";
 
 interface AddBookmarkFormProps {
+  categories: Category[];
+  onAddCategory: (cat: string) => void;
   editingBookmark: Bookmark | null;
   onClose: () => void;
-  onSubmit: (bookmark: Bookmark) => Promise<void>; // Changed to Promise to await submission
+  onSubmit: (bookmark: Bookmark) => Promise<void>;
 }
 
-const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onClose, onSubmit }) => {
+const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCategory, editingBookmark, onClose, onSubmit }) => {
   const [url, setUrl] = useState('');
   const [memo, setMemo] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<Category[]>(['인증샷']);
   const [thumbnail, setThumbnail] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  
+  // Custom category addition
+  const [newCatName, setNewCatName] = useState('');
+  const [showAddCat, setShowAddCat] = useState(false);
 
   useEffect(() => {
     if (editingBookmark) {
@@ -74,7 +78,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `I have this short-form video URL: ${url}. Predict what this video might be about and suggest a memo and multiple categories from: ${CATEGORIES.filter(c => c !== '전체').join(', ')}.`,
+        contents: `I have this short-form video URL: ${url}. Predict what this video might be about and suggest a memo and multiple categories from: ${categories.filter(c => c !== '전체').join(', ')}.`,
         config: {
            responseMimeType: "application/json",
            responseSchema: {
@@ -95,7 +99,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
       const result = JSON.parse(response.text || '{}');
       setMemo(prev => prev || result.memo);
       if (result.categories && Array.isArray(result.categories)) {
-        setSelectedCategories(result.categories.filter((c: string) => CATEGORIES.includes(c as Category)) as Category[]);
+        setSelectedCategories(result.categories.filter((c: string) => categories.includes(c)) as Category[]);
       }
       setThumbnail(`https://picsum.photos/seed/${result.thumbnailKeyword || 'video'}/400/600`);
     } catch (error) {
@@ -112,6 +116,16 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
         ? prev.filter(c => c !== cat) 
         : [...prev, cat]
     );
+  };
+
+  const handleAddNewCategory = () => {
+    const trimmed = newCatName.trim();
+    if (trimmed && !categories.includes(trimmed)) {
+      onAddCategory(trimmed);
+      setSelectedCategories(prev => [...prev, trimmed]);
+      setNewCatName('');
+      setShowAddCat(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -143,7 +157,6 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm transition-all animate-in fade-in">
       <div className="bg-white w-full max-w-md rounded-t-[2.5rem] sm:rounded-[2rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300 relative">
         
-        {/* Saving Overlay */}
         {isSaving && (
           <div className="absolute inset-0 z-[60] bg-white/80 backdrop-blur-[2px] flex flex-col items-center justify-center animate-in fade-in duration-300">
             <div className="relative">
@@ -210,11 +223,41 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
           </div>
 
           <div className={`space-y-1.5 transition-opacity ${isSaving ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
-            <label className="text-xs font-bold text-slate-500 flex items-center gap-1.5 ml-1">
-              <TypeIcon className="h-3 w-3" /> 카테고리 (중복 선택 가능)
-            </label>
+            <div className="flex items-center justify-between ml-1 mb-1">
+              <label className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
+                <Tag className="h-3 w-3" /> 카테고리 (중복 가능)
+              </label>
+              <button 
+                type="button"
+                onClick={() => setShowAddCat(!showAddCat)}
+                className="text-[10px] font-bold text-indigo-600 flex items-center gap-0.5 hover:underline"
+              >
+                <Plus className="h-2.5 w-2.5" /> 새 카테고리
+              </button>
+            </div>
+
+            {showAddCat && (
+              <div className="flex gap-2 mb-3 animate-in slide-in-from-top-2 duration-200">
+                <input 
+                  type="text"
+                  value={newCatName}
+                  onChange={(e) => setNewCatName(e.target.value)}
+                  placeholder="카테고리명..."
+                  className="flex-grow px-3 py-2 bg-indigo-50 border border-indigo-100 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-500"
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddNewCategory())}
+                />
+                <button 
+                  type="button"
+                  onClick={handleAddNewCategory}
+                  className="px-3 bg-indigo-600 text-white rounded-xl text-xs font-bold"
+                >
+                  추가
+                </button>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2">
-              {CATEGORIES.filter(c => c !== '전체').map(cat => (
+              {categories.filter(c => c !== '전체').map(cat => (
                 <button
                   key={cat}
                   type="button"
@@ -259,21 +302,12 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ editingBookmark, onCl
           </div>
 
           <div className="pt-2 flex gap-3">
-            <button 
-              type="button" 
-              onClick={onClose} 
-              disabled={isSaving}
-              className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-[1.25rem] font-bold text-sm disabled:opacity-50"
-            >
-              취소
-            </button>
+            <button type="button" onClick={onClose} disabled={isSaving} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-[1.25rem] font-bold text-sm disabled:opacity-50">취소</button>
             <button 
               type="submit" 
               disabled={isProcessing || isSaving}
               className={`flex-[2] py-4 rounded-[1.25rem] font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2
-                ${isSaving 
-                  ? 'bg-indigo-400 text-white shadow-none cursor-not-allowed' 
-                  : 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98]'}`}
+                ${isSaving ? 'bg-indigo-400 text-white shadow-none cursor-not-allowed' : 'bg-indigo-600 text-white shadow-indigo-200 hover:bg-indigo-700 active:scale-[0.98]'}`}
             >
               {isSaving ? (
                 <>

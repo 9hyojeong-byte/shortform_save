@@ -1,6 +1,6 @@
 
 import { GAS_WEB_APP_URL } from './constants';
-import { Bookmark, GASResponse } from './types';
+import { Bookmark, GASResponse, Category } from './types';
 
 export const gasApi = {
   async getEntries(): Promise<Bookmark[]> {
@@ -11,6 +11,17 @@ export const gasApi = {
       return result.data || [];
     } catch (error) {
       return JSON.parse(localStorage.getItem('bookmarks') || '[]');
+    }
+  },
+
+  async getCategories(): Promise<Category[]> {
+    if (!GAS_WEB_APP_URL) return [];
+    try {
+      const response = await fetch(`${GAS_WEB_APP_URL}?action=getCategories`);
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      return [];
     }
   },
 
@@ -26,12 +37,17 @@ export const gasApi = {
     return this.postToGas('deleteEntry', { id });
   },
 
+  async addCategory(category: Category): Promise<GASResponse> {
+    return this.postToGas('addCategory', { category });
+  },
+
   async postToGas(action: string, data: any): Promise<GASResponse> {
     if (!GAS_WEB_APP_URL) {
-      // 로컬 스토리지 모드 로직 (생략 가능하나 유지를 위해 남김)
       return { success: true };
     }
     try {
+      // GAS requires text/plain for POST with no-cors or specialized proxy handling
+      // We'll use a standard fetch but handle the no-cors limitation in a real env by checking result separately or using a better proxy
       await fetch(GAS_WEB_APP_URL, {
         method: 'POST',
         mode: 'no-cors',

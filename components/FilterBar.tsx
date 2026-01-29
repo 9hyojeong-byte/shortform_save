@@ -1,17 +1,17 @@
 
 import React from 'react';
 import { Category } from '../types';
-import { CATEGORIES, CATEGORY_COLORS } from '../constants';
 
 interface FilterBarProps {
+  categories: Category[];
   activeCategory: Category;
   onCategoryChange: (category: Category) => void;
 }
 
-const FilterBar: React.FC<FilterBarProps> = ({ activeCategory, onCategoryChange }) => {
+const FilterBar: React.FC<FilterBarProps> = ({ categories, activeCategory, onCategoryChange }) => {
   return (
     <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-2 -mx-1 px-1">
-      {CATEGORIES.map((cat) => {
+      {categories.map((cat) => {
         const isActive = activeCategory === cat;
         return (
           <button
