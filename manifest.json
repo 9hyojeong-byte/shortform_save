@@ -9,12 +9,12 @@
   "theme_color": "#4f46e5",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/128/2839/2839021.png",
+      "src": "https://raw.githubusercontent.com/9hyojeong-byte/files/refs/heads/main/icons/icon_toto_shorts_margin.png",
       "sizes": "128x128",
       "type": "image/png"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2839/2839021.png",
+      "src": "https://raw.githubusercontent.com/9hyojeong-byte/files/refs/heads/main/icons/icon_toto_shorts_margin.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
