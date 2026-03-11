@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { ExternalLink, Trash2, Calendar, Edit3 } from 'lucide-react';
+import React, { useState } from 'react';
+import { ExternalLink, Trash2, Calendar, Edit3, Copy, Check } from 'lucide-react';
 import { Bookmark } from '../types';
 import { getCategoryColor } from '../constants';
 
@@ -11,9 +11,22 @@ interface BookmarkCardProps {
 }
 
 const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark, onDelete, onEdit }) => {
+  const [isCopied, setIsCopied] = useState(false);
+
   const formatDate = (dateStr: string) => {
     const d = new Date(dateStr);
     return `${d.getMonth() + 1}/${d.getDate()}`;
+  };
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(bookmark.url);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
   };
 
   return (
@@ -55,8 +68,16 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark, onDelete, onEdit 
           </div>
           <div className="flex gap-1">
             <button 
+              onClick={handleCopy}
+              className="p-1.5 text-slate-300 hover:text-indigo-600 transition-colors"
+              title="URL 복사"
+            >
+              {isCopied ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
+            </button>
+            <button 
               onClick={() => onEdit(bookmark)}
               className="p-1.5 text-slate-300 hover:text-indigo-600 transition-colors"
+              title="수정"
             >
               <Edit3 className="h-3.5 w-3.5" />
             </button>
@@ -65,6 +86,7 @@ const BookmarkCard: React.FC<BookmarkCardProps> = ({ bookmark, onDelete, onEdit 
                 if (confirm('삭제하시겠습니까?')) onDelete(bookmark.id);
               }}
               className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+              title="삭제"
             >
               <Trash2 className="h-3.5 w-3.5" />
             </button>
