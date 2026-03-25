@@ -75,13 +75,17 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
   };
 
   const handleAutoThumbnail = async () => {
-    if (!url) return alert('URL을 먼저 입력해주세요.');
+    if (!url && !memo) return alert('URL이나 메모를 먼저 입력해주세요.');
     setIsProcessing(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const promptContent = url 
+        ? `I have this short-form video URL: ${url}. Predict what this video might be about and suggest a memo and multiple categories from: ${categories.filter(c => c !== '전체' && c !== '즐겨찾기').join(', ')}.`
+        : `I have this memo for a video: "${memo}". Predict what this video might be about and suggest multiple categories from: ${categories.filter(c => c !== '전체' && c !== '즐겨찾기').join(', ')}.`;
+        
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: `I have this short-form video URL: ${url}. Predict what this video might be about and suggest a memo and multiple categories from: ${categories.filter(c => c !== '전체').join(', ')}.`,
+        contents: promptContent,
         config: {
            responseMimeType: "application/json",
            responseSchema: {
@@ -133,7 +137,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!url) return alert('URL은 필수입니다.');
+    if (!url && !memo) return alert('URL이나 메모 중 하나는 필수입니다.');
     if (selectedCategories.length === 0) return alert('카테고리를 최소 하나 이상 선택해주세요.');
     
     setIsSaving(true);
@@ -187,11 +191,10 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
         <form onSubmit={handleSubmit} className="p-6 space-y-5 max-h-[80vh] overflow-y-auto">
           <div className={`space-y-1.5 transition-opacity ${isSaving ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
             <label className="text-xs font-bold text-slate-500 flex items-center gap-1.5 ml-1">
-              <LinkIcon className="h-3 w-3" /> 영상 URL
+              <LinkIcon className="h-3 w-3" /> 영상 URL (선택)
             </label>
             <div className="relative">
               <input
-                required
                 type="url"
                 disabled={isSaving}
                 value={url}
@@ -203,7 +206,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
                 <button
                   type="button"
                   onClick={handleAutoThumbnail}
-                  disabled={isProcessing || isSaving}
+                  disabled={isProcessing || isSaving || (!url && !memo)}
                   className="absolute right-2 top-1.5 bottom-1.5 px-3 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 disabled:bg-slate-300 flex items-center gap-1.5 transition-colors"
                 >
                   {isProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
@@ -262,7 +265,7 @@ const AddBookmarkForm: React.FC<AddBookmarkFormProps> = ({ categories, onAddCate
             )}
 
             <div className="grid grid-cols-3 gap-2">
-              {categories.filter(c => c !== '전체').map(cat => (
+              {categories.filter(c => c !== '전체' && c !== '즐겨찾기').map(cat => (
                 <button
                   key={cat}
                   type="button"

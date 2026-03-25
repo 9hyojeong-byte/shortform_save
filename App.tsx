@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, PlayCircle, Loader2 } from 'lucide-react';
+import { Plus, Search, PlayCircle, Loader2, X } from 'lucide-react';
 import { Bookmark, Category } from './types';
 import Header from './components/Header';
 import FilterBar from './components/FilterBar';
@@ -18,6 +18,7 @@ const App: React.FC = () => {
   const [editingBookmark, setEditingBookmark] = useState<Bookmark | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [viewingImage, setViewingImage] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     setIsLoading(true);
@@ -102,6 +103,26 @@ const App: React.FC = () => {
     setIsFormOpen(true);
   };
 
+  const handleToggleFavorite = async (bookmark: Bookmark) => {
+    const isFavorite = Array.isArray(bookmark.category) && bookmark.category.includes('즐겨찾기');
+    const newCategory = isFavorite 
+      ? bookmark.category.filter(c => c !== '즐겨찾기')
+      : [...(bookmark.category || []), '즐겨찾기'];
+      
+    const updatedBookmark = { ...bookmark, category: newCategory };
+    
+    // Optimistic update
+    setBookmarks(prev => prev.map(b => b.id === bookmark.id ? updatedBookmark : b));
+    
+    try {
+      await gasApi.updateEntry(updatedBookmark);
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      // Revert on error
+      setBookmarks(prev => prev.map(b => b.id === bookmark.id ? bookmark : b));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 pb-24">
       <Header />
@@ -138,6 +159,8 @@ const App: React.FC = () => {
                 bookmark={bookmark} 
                 onDelete={handleDeleteBookmark}
                 onEdit={handleEditClick}
+                onToggleFavorite={handleToggleFavorite}
+                onImageView={setViewingImage}
               />
             ))}
           </div>
@@ -166,6 +189,25 @@ const App: React.FC = () => {
           onClose={() => { setIsFormOpen(false); setEditingBookmark(null); }} 
           onSubmit={handleSaveBookmark}
         />
+      )}
+
+      {viewingImage && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => setViewingImage(null)}
+        >
+          <button 
+            className="absolute top-4 right-4 p-2 text-white/70 hover:text-white bg-black/50 rounded-full transition-colors"
+            onClick={() => setViewingImage(null)}
+          >
+            <X className="h-6 w-6" />
+          </button>
+          <img 
+            src={viewingImage} 
+            alt="Full size" 
+            className="max-w-full max-h-full object-contain rounded-lg animate-in zoom-in-95 duration-200"
+          />
+        </div>
       )}
     </div>
   );
